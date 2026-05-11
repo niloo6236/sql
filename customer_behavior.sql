@@ -1,86 +1,135 @@
 -- =====================================================
 -- Customer Behavior Analysis Project
--- Author: Niloo
+-- Author: Niloofar
 -- Purpose: Analyze customer spending patterns and behavior
 -- Tool: SQL
 -- =====================================================
 
--- Basic customer spending analysis
+-- =====================================================
+-- 1. CUSTOMER OVERVIEW & REVENUE ANALYSIS
+-- =====================================================
 
-select * from customer 
+-- Basic dataset check
+SELECT * FROM customer;
+
+-- Revenue analysis by gender
+SELECT 
+    gender, 
+    SUM(purchase_amount) AS total_revenue
+FROM customer
+GROUP BY gender;
+
+-- Customers with discount usage and above-average spending
+SELECT 
+    customer_id, 
+    purchase_amount
+FROM customer
+WHERE discount_applied = 'Yes'
+AND purchase_amount >= (SELECT AVG(purchase_amount) FROM customer);
+
+-- Product rating analysis
+SELECT 
+    item_purchased,
+    ROUND(AVG(review_rating), 2) AS average_product_rating
+FROM customer
+GROUP BY item_purchased
+ORDER BY average_product_rating DESC;
+
+-- Shipping type spending behavior
+SELECT 
+    shipping_type,
+    ROUND(AVG(purchase_amount), 2) AS avg_purchase_amount
+FROM customer
+WHERE shipping_type IN ('Standard', 'Express')
+GROUP BY shipping_type;
+
+-- Subscription status impact on revenue
+SELECT 
+    subscription_status,
+    COUNT(customer_id) AS total_customers,
+    ROUND(AVG(purchase_amount), 2) AS avg_spend,
+    ROUND(SUM(purchase_amount), 2) AS total_revenue
+FROM customer
+GROUP BY subscription_status
+ORDER BY total_revenue DESC;
+
+-- Discount usage rate by product
+SELECT 
+    item_purchased,
+    ROUND(
+        100.0 * SUM(CASE WHEN discount_applied = 'Yes' THEN 1 ELSE 0 END) 
+        / COUNT(*), 2
+    ) AS discount_rate
+FROM customer
+GROUP BY item_purchased
+ORDER BY discount_rate DESC;
 
 
-select gender, sum(purchase_amount) as revenue
-from customer
-group by gender
+-- =====================================================
+-- 2. CUSTOMER SEGMENTATION
+-- =====================================================
 
-select customer_id, purchase_amount
-from customer
-where discount_applied = 'Yes' and purchase_amount >= (select AVG (purchase_amount) from customer)
-
-select item_purchased, round(AVG(review_rating),2) as 'Avarage Product Rating'
-from customer
-group by item_purchased
-order by AVG(review_rating) desc
-
-select shipping_type,
-round(AVG(purchase_amount),2)
-from customer
-where shipping_type in ('Standard','Express')
-group by shipping_type
-
-select subscription_status,
-COUNT(customer_id) as total_customers,
-ROUND(AVG(purchase_amount),2) as avg_spend,
-ROUND(SUM(purchase_amount),2) as total_revenue
-from customer
-group by subscription_status
-order by total_revenue,avg_spend desc
-
-select item_purchased,
-ROUND(100 * SUM(case when discount_applied= 'Yes' then 1 else 0 end) / COUNT(*),2) as discount_rate
-from customer
-group by item_purchased
-order by discount_rate desc
-
-
-with customer_type as (
-select customer_id, previous_purchases,
-case
-    when previous_purchases = 1 then 'New'
-    when previous_purchases between 2 and 10 then 'Returning'
-    else 'Loyal'
-    end as customer_segment
-from customer
+-- Customer segmentation (New / Returning / Loyal)
+WITH customer_type AS (
+    SELECT 
+        customer_id,
+        previous_purchases,
+        CASE 
+            WHEN previous_purchases = 1 THEN 'New'
+            WHEN previous_purchases BETWEEN 2 AND 10 THEN 'Returning'
+            ELSE 'Loyal'
+        END AS customer_segment
+    FROM customer
 )
-select customer_segment, COUNT(*) as 'Number of Customers'
-from customer_type
-group by customer_segment
+SELECT 
+    customer_segment,
+    COUNT(*) AS number_of_customers
+FROM customer_type
+GROUP BY customer_segment;
 
 
+-- =====================================================
+-- 3. PRODUCT & CATEGORY INSIGHTS
+-- =====================================================
 
-with item_counts as (
-select category,
-item_purchased,
-COUNT(customer_id) as total_orders,
-ROW_NUMBER() over(partition by category order by count(customer_id) DESC) as item_rank
-from customer
-group by category, item_purchased
+-- Top 3 items per category
+WITH item_counts AS (
+    SELECT 
+        category,
+        item_purchased,
+        COUNT(customer_id) AS total_orders,
+        ROW_NUMBER() OVER (
+            PARTITION BY category 
+            ORDER BY COUNT(customer_id) DESC
+        ) AS item_rank
+    FROM customer
+    GROUP BY category, item_purchased
 )
-select item_rank, category, item_purchased, total_orders
-from item_counts
-where item_rank <= 3
+SELECT 
+    item_rank,
+    category,
+    item_purchased,
+    total_orders
+FROM item_counts
+WHERE item_rank <= 3;
 
 
-select subscription_status,
-COUNT(customer_id) as repeat_buyers
-from customer
-where previous_purchases >5
-group by subscription_status
+-- =====================================================
+-- 4. CUSTOMER LOYALTY & BEHAVIOR
+-- =====================================================
 
+-- Repeat buyers by subscription status
+SELECT 
+    subscription_status,
+    COUNT(customer_id) AS repeat_buyers
+FROM customer
+WHERE previous_purchases > 5
+GROUP BY subscription_status;
 
-select age_group,
-SUM(purchase_amount) as total_revenue
-from customer
-group by age_group
-order by total_revenue DESC
+-- Revenue by age group
+SELECT 
+    age_group,
+    SUM(purchase_amount) AS total_revenue
+FROM customer
+GROUP BY age_group
+ORDER BY total_revenue DESC;
