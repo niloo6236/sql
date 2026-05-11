@@ -1,3 +1,12 @@
+-- =====================================================
+-- Customer Behavior Analysis Project
+-- Author: Niloo
+-- Purpose: Analyze customer spending patterns and behavior
+-- Tool: SQL
+-- =====================================================
+
+-- Basic customer spending analysis
+
 select * from customer 
 
 
